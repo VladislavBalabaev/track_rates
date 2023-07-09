@@ -3,13 +3,12 @@ import requests
 from urllib import parse
 
 
-def query(method: str, table_columns: list = None, **kwargs):
+def query(method: str,
+          json_key='securities',
+          table_columns: list = None,
+          **kwargs):
     """
-    Sending query to ISS MOEX
-    :param method:
-    :param table_columns:
-    :param kwargs:
-    :return:
+    Sending query to ISS MOEX.
     """
     url = f'https://iss.moex.com/iss/{method}.json'
     if kwargs:
@@ -18,9 +17,11 @@ def query(method: str, table_columns: list = None, **kwargs):
     result = requests.get(url)
     result.encoding = 'utf-8'
     result = result.json()
-
-    df = pd.DataFrame(result['securities']['data'],
-                      columns=result['securities']['columns'])
-    if table_columns:
-        df = df[table_columns]
-    return df
+    try:
+        df = pd.DataFrame(result[json_key]['data'],
+                          columns=result[json_key]['columns'])
+        if table_columns:
+            df = df[table_columns]
+        return df
+    except KeyError:
+        return result
