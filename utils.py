@@ -53,33 +53,39 @@ def get_bond_info(secid):
     return bond_info
 
 
-def get_bonds(n_pages: int):
-    all_bonds = []
-    for page in (pbar := tqdm(range(n_pages), leave=False)):
-        bonds = query(
-            "securities",
-            details={'group_by': 'group',
-                     'group_by_filter': 'stock_bonds',
-                     'limit': 100,
-                     'start': page * 100}
-        )
-        bonds = pandify(
-            json_object=bonds,
-            table_columns=['secid', 'name', 'is_traded', 'type', 'primary_boardid']
-        )
-        pbar.set_description(f"{colored(str(bonds.shape[0]), 'red')} bonds collected from {page} page.")
-        if bonds.shape[0] == 0:
-            pbar.close()
-            print(f'Pages ran out earlier that {n_pages}. All {page} pages are collected. ')
-            break
-        all_bonds.append(bonds)
-    all_bonds = pd.concat(all_bonds)
+def add_bonds_info(all_bonds):
+    all_bonds_info = []
+    for secid in all_bonds['secid']:
+        all_bonds_info.append(get_bond_info(secid=secid))
+    all_bonds_info = pd.concat(all_bonds_info)
 
+    all_bonds = pd.merge(all_bonds, all_bonds_info, on='secid', how='left')
     return all_bonds
 
 
-def add_bonds_info(all_bonds):
-    all_bonds_info = pd.concat([get_bond_info(secid=secid) for secid in all_bonds['secid']])
+def get_bonds(n_pages: int, add_info: bool):
+    some_details = {'group_by': 'group',
+                    'group_by_filter': 'stock_bonds',
+                    'limit': 100}
+    table_columns = ['secid', 'name', 'is_traded', 'type', 'primary_boardid']
 
-    all_bonds = pd.merge(all_bonds, all_bonds_info, on='secid', how='left')
+    print(f'Start of pages parsing.')
+
+    all_bonds = []
+    for page in (pbar := tqdm(range(n_pages), leave=False)):
+        bonds = query("securities", details=some_details | {'start': page * 100})
+        bonds = pandify(json_object=bonds, table_columns=table_columns)
+
+        pbar.set_description(f"{colored(str(bonds.shape[0]), 'red')} bonds collected from {page} page.")
+
+        if bonds.shape[0] == 0:
+            pbar.close()
+            print(f'Pages ran out earlier that {n_pages}. All {page} pages are collected.')
+            break
+
+        all_bonds.append(bonds)
+    else:
+        print(f'All {n_pages} were parsed.')
+
+    all_bonds = pd.concat(all_bonds)
     return all_bonds
