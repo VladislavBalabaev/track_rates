@@ -54,16 +54,18 @@ def get_bond_info(secid):
 
 
 def add_bonds_info(all_bonds):
+    print('Start of adding info to bonds.')
+
     all_bonds_info = []
-    for secid in all_bonds['secid']:
+    for secid in tqdm(all_bonds['secid'].unique()):
         all_bonds_info.append(get_bond_info(secid=secid))
     all_bonds_info = pd.concat(all_bonds_info)
 
-    all_bonds = pd.merge(all_bonds, all_bonds_info, on='secid', how='left')
-    return all_bonds
+    print('End of adding info to bonds.')
+    return pd.merge(all_bonds, all_bonds_info, on='secid', how='left')
 
 
-def get_bonds(n_pages: int, add_info: bool):
+def get_bonds(n_pages: int, add_info: bool = True):
     some_details = {'group_by': 'group',
                     'group_by_filter': 'stock_bonds',
                     'limit': 100}
@@ -72,7 +74,7 @@ def get_bonds(n_pages: int, add_info: bool):
     print(f'Start of pages parsing.')
 
     all_bonds = []
-    for page in (pbar := tqdm(range(n_pages), leave=False)):
+    for page in (pbar := tqdm(range(n_pages))):
         bonds = query("securities", details=some_details | {'start': page * 100})
         bonds = pandify(json_object=bonds, table_columns=table_columns)
 
@@ -88,4 +90,7 @@ def get_bonds(n_pages: int, add_info: bool):
         print(f'All {n_pages} were parsed.')
 
     all_bonds = pd.concat(all_bonds)
+
+    if add_info:
+        all_bonds = add_bonds_info(all_bonds)
     return all_bonds
