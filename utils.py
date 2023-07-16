@@ -1,6 +1,8 @@
 import pandas as pd
 import requests
 from urllib import parse
+from tqdm import tqdm
+from termcolor import colored
 # import datetime as dt
 
 
@@ -50,9 +52,10 @@ def get_bond_info(secid):
         .T
     return bond_info
 
+
 def get_bonds(n_pages: int):
     all_bonds = []
-    for page in range(n_pages):
+    for page in (pbar := tqdm(range(n_pages), leave=False)):
         bonds = query(
             "securities",
             details={'group_by': 'group',
@@ -64,11 +67,18 @@ def get_bonds(n_pages: int):
             json_object=bonds,
             table_columns=['secid', 'name', 'is_traded', 'type', 'primary_boardid']
         )
+        pbar.set_description(f"{colored(str(bonds.shape[0]), 'red')} bonds collected from {page} page.")
         if bonds.shape[0] == 0:
+            pbar.close()
+            print(f'Pages ran out earlier that {n_pages}. All {page} pages are collected. ')
             break
         all_bonds.append(bonds)
     all_bonds = pd.concat(all_bonds)
 
+    return all_bonds
+
+
+def add_bonds_info(all_bonds):
     all_bonds_info = pd.concat([get_bond_info(secid=secid) for secid in all_bonds['secid']])
 
     all_bonds = pd.merge(all_bonds, all_bonds_info, on='secid', how='left')
