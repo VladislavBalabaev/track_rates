@@ -1,9 +1,9 @@
-import pandas as pd
 import requests
-from urllib import parse
-from tqdm import tqdm
-from termcolor import colored
+import pandas as pd
 import datetime as dt
+from tqdm import tqdm
+from urllib import parse
+from termcolor import colored
 
 
 def dt_now_str():
@@ -46,7 +46,7 @@ def get_bond_info(secid):
     #     result = query(f"history/engines/stock/markets/bonds/sessions/3/securities/{secid}", details={'from': date})
     #     result = pandify(json_object=result, json_key='history')
 
-    bond_info = query(f"securities/{secid}")
+    bond_info = query(method=f"securities/{secid}")
 
     bond_info = pandify(json_object=bond_info, json_key='description')
     bond_info['name'] = bond_info['name'].str.lower()
@@ -58,16 +58,16 @@ def get_bond_info(secid):
     return bond_info
 
 
-def add_bonds_info(all_bonds):
+def add_bonds_info(secids):
     print(f'\n({dt_now_str()}) Start of adding info to bonds:')
 
     all_bonds_info = []
-    for secid in tqdm(all_bonds['secid'].unique()):
+    for secid in tqdm(secids):
         all_bonds_info.append(get_bond_info(secid=secid))
     all_bonds_info = pd.concat(all_bonds_info)
 
     print(f'({dt_now_str()}) End of adding info to bonds.')
-    return pd.merge(all_bonds, all_bonds_info, on='secid', how='left')
+    return all_bonds_info
 
 
 def get_bonds(n_pages: int, add_info: bool = True):
@@ -80,7 +80,7 @@ def get_bonds(n_pages: int, add_info: bool = True):
 
     all_bonds = []
     for page in (pbar := tqdm(range(n_pages))):
-        bonds = query("securities", details=some_details | {'start': page * 100})
+        bonds = query(method="securities", details=some_details | {'start': page * 100})
         bonds = pandify(json_object=bonds, table_columns=table_columns)
 
         pbar.set_description(f"{bonds.shape[0]} bonds collected from {page}th page.")
@@ -97,5 +97,6 @@ def get_bonds(n_pages: int, add_info: bool = True):
     all_bonds = pd.concat(all_bonds)
 
     if add_info:
-        all_bonds = add_bonds_info(all_bonds)
+        all_bonds_info = add_bonds_info(all_bonds['secid'].unique())
+        all_bonds = pd.merge(all_bonds, all_bonds_info, on='secid', how='left')
     return all_bonds
