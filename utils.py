@@ -3,7 +3,12 @@ import requests
 from urllib import parse
 from tqdm import tqdm
 from termcolor import colored
-# import datetime as dt
+import datetime as dt
+
+
+def dt_now_str():
+    now = dt.datetime.now().isoformat(sep=" ", timespec="seconds")
+    return colored(now, 'green')
 
 
 def query(method: str, details: dict = None):
@@ -54,14 +59,14 @@ def get_bond_info(secid):
 
 
 def add_bonds_info(all_bonds):
-    print('Start of adding info to bonds.')
+    print(f'\n({dt_now_str()}) Start of adding info to bonds:')
 
     all_bonds_info = []
     for secid in tqdm(all_bonds['secid'].unique()):
         all_bonds_info.append(get_bond_info(secid=secid))
     all_bonds_info = pd.concat(all_bonds_info)
 
-    print('End of adding info to bonds.')
+    print(f'({dt_now_str()}) End of adding info to bonds.')
     return pd.merge(all_bonds, all_bonds_info, on='secid', how='left')
 
 
@@ -71,23 +76,23 @@ def get_bonds(n_pages: int, add_info: bool = True):
                     'limit': 100}
     table_columns = ['secid', 'name', 'is_traded', 'type', 'primary_boardid']
 
-    print(f'Start of pages parsing.')
+    print(f'({dt_now_str()}) Start of pages parsing:')
 
     all_bonds = []
     for page in (pbar := tqdm(range(n_pages))):
         bonds = query("securities", details=some_details | {'start': page * 100})
         bonds = pandify(json_object=bonds, table_columns=table_columns)
 
-        pbar.set_description(f"{colored(str(bonds.shape[0]), 'red')} bonds collected from {page} page.")
+        pbar.set_description(f"{bonds.shape[0]} bonds collected from {page}th page.")
 
         if bonds.shape[0] == 0:
             pbar.close()
-            print(f'Pages ran out earlier that {n_pages}. All {page} pages are collected.')
+            print(f'({dt_now_str()}) Pages ran out earlier that {n_pages}. All {page} pages are collected.')
             break
 
         all_bonds.append(bonds)
     else:
-        print(f'All {n_pages} were parsed.')
+        print(f'({dt_now_str()}) All {n_pages} were parsed.')
 
     all_bonds = pd.concat(all_bonds)
 
