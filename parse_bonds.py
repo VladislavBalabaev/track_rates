@@ -14,4 +14,4 @@ if __name__ == '__main__':
     all_bonds = get_bonds(n_pages=1000, add_info=True)
     all_bonds['date_of_parsing'] = current_date
 
-    all_bonds.to_csv(f'all_bonds_{current_date}.csv', index=False)
+    all_bonds.to_csv(path_or_buf=path / f'all_bonds_{current_date}.csv', index=False)
