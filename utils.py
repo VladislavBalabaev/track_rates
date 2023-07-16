@@ -7,6 +7,9 @@ from termcolor import colored
 
 
 def dt_now_str():
+    """
+    Get current datetime painted green in string format.
+    """
     now = dt.datetime.now().isoformat(sep=" ", timespec="seconds")
     return colored(now, 'green')
 
@@ -25,6 +28,9 @@ def query(method: str, details: dict = None):
 
 
 def pandify(json_object, json_key='securities', table_columns: list = None):
+    """
+    Transform json object to pd.Dataframe.
+    """
     df = pd.DataFrame(json_object[json_key]['data'],
                       columns=json_object[json_key]['columns'])
     if table_columns:
@@ -40,6 +46,9 @@ bond_columns_for_get_bond_info = {
 
 
 def get_bond_info(secid):
+    """
+    Get particular bond's information by its security id.
+    """
     global bond_columns_for_get_bond_info
     # def get_yield(secid):
     #     date = (dt.datetime.now() - dt.timedelta(days=7)).strftime("%Y-%m-%d")
@@ -59,6 +68,9 @@ def get_bond_info(secid):
 
 
 def add_bonds_info(secids):
+    """
+    Get information of bonds by their security ids.
+    """
     print(f'\n({dt_now_str()}) Start of adding info to bonds:')
 
     all_bonds_info = []
@@ -71,6 +83,9 @@ def add_bonds_info(secids):
 
 
 def get_bonds(n_pages: int, add_info: bool = True):
+    """
+    Get bonds and their info from first N pages.
+    """
     some_details = {'group_by': 'group',
                     'group_by_filter': 'stock_bonds',
                     'limit': 100}
