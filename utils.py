@@ -36,14 +36,14 @@ def query(method: str, details: dict = None):
     return result.json()
 
 
-def pandify(json_object, json_key='securities', table_columns: list = None):
+def pandify(json_object, json_key='securities', columns: list = None):
     """
     Transform json object to pd.Dataframe.
     """
     df = pd.DataFrame(json_object[json_key]['data'],
                       columns=json_object[json_key]['columns'])
-    if table_columns:
-        df = df[table_columns]
+    if columns:
+        df = df[columns]
     return df
 
 
@@ -80,7 +80,7 @@ def get_bond_info(secid):
     )
     history = pandify(json_object=history,
                       json_key='history',
-                      table_columns=['NUMTRADES', 'WAPRICE', 'ACCINT'])
+                      columns=['NUMTRADES', 'WAPRICE', 'ACCINT'])
     history = history[history['NUMTRADES'] > 0].dropna()
 
     if history.shape[0] > 0:
@@ -89,8 +89,6 @@ def get_bond_info(secid):
         info['accint'] = history['ACCINT']
 
     # coupon dates
-
-
     return info
 
 
@@ -113,17 +111,17 @@ def get_bonds(n_pages: int, add_info: bool = True):
     """
     Get bonds and their info from first N pages.
     """
-    some_details = {'group_by': 'group',
+    details = {'group_by': 'group',
                     'group_by_filter': 'stock_bonds',
                     'limit': 100}
-    table_columns = ['secid', 'name', 'is_traded', 'type', 'primary_boardid']
+    columns = ['secid', 'name', 'is_traded', 'type', 'primary_boardid']
 
     print(f'{dt_now_str()} Start of pages parsing:')
 
     all_bonds = []
     for page in (pbar := tqdm(range(n_pages))):
-        bonds = query(method="securities", details=some_details | {'start': page * 100})
-        bonds = pandify(json_object=bonds, table_columns=table_columns)
+        bonds = query(method="securities", details=details | {'start': page * 100})
+        bonds = pandify(json_object=bonds, columns=columns)
 
         pbar.set_description(f"{bonds.shape[0]} bonds collected from {page}th page.")
 
