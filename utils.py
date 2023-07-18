@@ -47,7 +47,7 @@ def pandify(json_object, json_key='securities', table_columns: list = None):
     return df
 
 
-bond_columns_for_get_bond_info = {
+columns_for_info = {
     'secid', 'issuedate', 'matdate', 'buybackdate', 'initialfacevalue', 'faceunit',
     'facevalue', 'listlevel', 'includedbymoex', 'issuesize', 'isqualifiedinvestors',
     'couponfrequency', 'couponpercent', 'couponvalue', 'typename'
@@ -58,32 +58,40 @@ def get_bond_info(secid):
     """
     Get particular bond's information by its security id.
     """
-    global bond_columns_for_get_bond_info
+    global columns_for_info
 
-    bond_info = query(method=f"securities/{secid}")
+    datetime_now = dt.datetime.now()
 
-    bond_info = pandify(json_object=bond_info, json_key='description')
-    bond_info['name'] = bond_info['name'].str.lower()
-    bond_columns = list(set.intersection(bond_columns_for_get_bond_info, set(bond_info['name'])))
-    bond_info = bond_info \
+    # general info
+    info = query(method=f"securities/{secid}")
+
+    info = pandify(json_object=info, json_key='description')
+    info['name'] = info['name'].str.lower()
+    bond_columns = list(set.intersection(columns_for_info, set(info['name'])))
+    info = info \
         .set_index('name') \
         .loc[bond_columns, ['value']] \
         .T
 
-    bond_history = query(
+    # recent prices and volumes
+    history = query(
         method=f"history/engines/stock/markets/bonds/sessions/3/securities/{secid}",
-        details={'from': (dt.datetime.now() - dt.timedelta(days=7)).strftime("%Y-%m-%d")}
+        details={'from': (datetime_now - dt.timedelta(days=7)).strftime("%Y-%m-%d")}
     )
-    bond_history = pandify(json_object=bond_history,
-                           json_key='history',
-                           table_columns=['NUMTRADES', 'WAPRICE'])
-    bond_history = bond_history[bond_history['NUMTRADES'] > 0].dropna()
+    history = pandify(json_object=history,
+                      json_key='history',
+                      table_columns=['NUMTRADES', 'WAPRICE', 'ACCINT'])
+    history = history[history['NUMTRADES'] > 0].dropna()
 
-    if bond_history.shape[0] > 0:
-        bond_info['numtrades'] = bond_history['NUMTRADES'].sum()
-        bond_info['waprice'] = np.average(bond_history['WAPRICE'], weights=bond_history['NUMTRADES'])
+    if history.shape[0] > 0:
+        info['numtrades'] = history['NUMTRADES'].sum()
+        info['waprice'] = np.average(history['WAPRICE'], weights=history['NUMTRADES'])
+        info['accint'] = history['ACCINT']
 
-    return bond_info
+    # coupon dates
+
+
+    return info
 
 
 def add_bonds_info(secids):
