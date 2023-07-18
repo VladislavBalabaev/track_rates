@@ -1,4 +1,5 @@
 import os
+import time
 import requests
 import numpy as np
 import pandas as pd
@@ -16,7 +17,7 @@ def dt_now_str():
     Get current datetime painted green in string format.
     """
     now = dt.datetime.now().isoformat(sep=" ", timespec="seconds")
-    return f"({colored(now, 'green')})"
+    return f"{colored(f'({now})', 'green')}"
 
 
 def query(method: str, details: dict = None):
@@ -75,12 +76,12 @@ def get_bond_info(secid):
     )
     bond_history = pandify(json_object=bond_history,
                            json_key='history',
-                           table_columns=['secid', 'numtrades', 'waprice'])
-    bond_history = bond_history.dropna()
+                           table_columns=['NUMTRADES', 'WAPRICE'])
+    bond_history = bond_history[bond_history['NUMTRADES'] > 0].dropna()
 
     if bond_history.shape[0] > 0:
-        bond_info['numtrades'] = bond_history['numtrades'].sum()
-        bond_info['waprice'] = np.average(bond_history['waprice'], weights=bond_history['numtrades'])
+        bond_info['numtrades'] = bond_history['NUMTRADES'].sum()
+        bond_info['waprice'] = np.average(bond_history['WAPRICE'], weights=bond_history['NUMTRADES'])
 
     return bond_info
 
@@ -93,7 +94,7 @@ def add_bonds_info(secids):
 
     all_bonds_info = []
     for secid in tqdm(secids):
-        all_bonds_info.append(get_bond_info(secid=secid))
+            all_bonds_info.append(get_bond_info(secid=secid))
     all_bonds_info = pd.concat(all_bonds_info)
 
     print(f'{dt_now_str()} End of adding info to bonds.')
@@ -130,8 +131,9 @@ def get_bonds(n_pages: int, add_info: bool = True):
     all_bonds = pd.concat(all_bonds)
 
     if add_info:
+        time.sleep(1)
         print('\n')
-        secids_to_add_info = all_bonds.loc[all_bonds['is_traded'], 'secid'].unique()
+        secids_to_add_info = all_bonds.loc[all_bonds['is_traded'] == 1, 'secid'].unique()
         all_bonds_info = add_bonds_info(secids_to_add_info)
         all_bonds = pd.merge(all_bonds, all_bonds_info, on='secid', how='left')
     return all_bonds
