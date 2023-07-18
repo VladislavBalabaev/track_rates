@@ -1,5 +1,6 @@
 import os
 import requests
+import numpy as np
 import pandas as pd
 import datetime as dt
 from tqdm import tqdm
@@ -22,6 +23,9 @@ def query(method: str, details: dict = None):
     """
     Sending query to ISS MOEX.
     """
+    if 'https://iss.moex.com/iss/' in method:
+        raise ValueError('Please, provide only method, not actual link.')
+
     url = f'https://iss.moex.com/iss/{method}.json'
     if details:
         url += "?" + parse.urlencode(details)
@@ -54,10 +58,6 @@ def get_bond_info(secid):
     Get particular bond's information by its security id.
     """
     global bond_columns_for_get_bond_info
-    # def get_yield(secid):
-    #     date = (dt.datetime.now() - dt.timedelta(days=7)).strftime("%Y-%m-%d")
-    #     result = query(f"history/engines/stock/markets/bonds/sessions/3/securities/{secid}", details={'from': date})
-    #     result = pandify(json_object=result, json_key='history')
 
     bond_info = query(method=f"securities/{secid}")
 
@@ -68,6 +68,20 @@ def get_bond_info(secid):
         .set_index('name') \
         .loc[bond_columns, ['value']] \
         .T
+
+    bond_history = query(
+        method=f"history/engines/stock/markets/bonds/sessions/3/securities/{secid}",
+        details={'from': (dt.datetime.now() - dt.timedelta(days=7)).strftime("%Y-%m-%d")}
+    )
+    bond_history = pandify(json_object=bond_history,
+                           json_key='history',
+                           table_columns=['secid', 'numtrades', 'waprice'])
+    bond_history = bond_history.dropna()
+
+    if bond_history.shape[0] > 0:
+        bond_info['numtrades'] = bond_history['numtrades'].sum()
+        bond_info['waprice'] = np.average(bond_history['waprice'], weights=bond_history['numtrades'])
+
     return bond_info
 
 
@@ -117,6 +131,7 @@ def get_bonds(n_pages: int, add_info: bool = True):
 
     if add_info:
         print('\n')
-        all_bonds_info = add_bonds_info(all_bonds['secid'].unique())
+        secids_to_add_info = all_bonds.loc[all_bonds['is_traded'], 'secid'].unique()
+        all_bonds_info = add_bonds_info(secids_to_add_info)
         all_bonds = pd.merge(all_bonds, all_bonds_info, on='secid', how='left')
     return all_bonds
