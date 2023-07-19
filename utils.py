@@ -89,6 +89,24 @@ def get_bond_info(secid):
         info['accint'] = history['ACCINT']
 
     # coupon dates
+    if 'matdate' in info and info.loc['value', 'matdate'] is not None:
+        coupon_dates = []
+        date = datetime_now.strftime("%Y-%m-%d")
+
+        while date != info.loc['value', 'matdate']:
+            dates = query(
+                method=f'statistics/engines/stock/markets/bonds/bondization/{secid}',
+                details={'iss.only': 'coupons',
+                         'from': date,
+                         'limit': 100}
+                  )
+            dates = pandify(json_object=dates, json_key='coupons', columns=['coupondate'])
+
+            coupon_dates += dates['coupondate'].tolist()
+
+            date = dates['coupondate'].max()
+
+        info['coupon_dates'] = str(sorted(list(set(coupon_dates))))
     return info
 
 
