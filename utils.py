@@ -101,12 +101,14 @@ def get_bond_info(secid):
                          'limit': 100}
                   )
             dates = pandify(json_object=dates, json_key='coupons', columns=['coupondate'])
+            if dates.shape[0] == 0:
+                break
 
             coupon_dates += dates['coupondate'].tolist()
 
             date = dates['coupondate'].max()
 
-        info['coupon_dates'] = str(sorted(list(set(coupon_dates))))
+        info['coupondates'] = str(sorted(list(set(coupon_dates))))
     return info
 
 
