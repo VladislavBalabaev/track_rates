@@ -8,7 +8,6 @@ from tqdm import tqdm
 from urllib import parse
 from termcolor import colored
 
-
 tinkoff_token = os.getenv('TINKOFF_TOKEN')
 
 
@@ -86,27 +85,36 @@ def get_bond_info(secid):
     if history.shape[0] > 0:
         info['numtrades'] = history['NUMTRADES'].sum()
         info['waprice'] = np.average(history['WAPRICE'], weights=history['NUMTRADES'])
-        info['accint'] = history['ACCINT']
+        info['accint'] = history['ACCINT'].iloc[-1]
 
     # coupon dates
     if 'matdate' in info and info.loc['value', 'matdate'] is not None:
         coupon_dates = []
         date = datetime_now.strftime("%Y-%m-%d")
 
-        while date != info.loc['value', 'matdate']:
+        for _ in range(10):
             dates = query(
                 method=f'statistics/engines/stock/markets/bonds/bondization/{secid}',
                 details={'iss.only': 'coupons',
                          'from': date,
                          'limit': 100}
-                  )
+            )
             dates = pandify(json_object=dates, json_key='coupons', columns=['coupondate'])
+
             if dates.shape[0] == 0:
                 break
-
-            coupon_dates += dates['coupondate'].tolist()
+            else:
+                coupon_dates += dates['coupondate'].tolist()
 
             date = dates['coupondate'].max()
+
+            if date == info.loc['value', 'matdate']:
+                break
+            else:
+                date = dt.datetime.strptime(dates['coupondate'].max(), "%Y-%m-%d")
+                date = (date + dt.timedelta(days=1)).strftime("%Y-%m-%d")
+        else:
+            print(f"Something wrong with {secid}")
 
         info['coupondates'] = str(sorted(list(set(coupon_dates))))
     return info
@@ -120,7 +128,7 @@ def add_bonds_info(secids):
 
     all_bonds_info = []
     for secid in tqdm(secids):
-            all_bonds_info.append(get_bond_info(secid=secid))
+        all_bonds_info.append(get_bond_info(secid=secid))
     all_bonds_info = pd.concat(all_bonds_info)
 
     print(f'{dt_now_str()} End of adding info to bonds.')
@@ -132,8 +140,8 @@ def get_bonds(n_pages: int, add_info: bool = True):
     Get bonds and their info from first N pages.
     """
     details = {'group_by': 'group',
-                    'group_by_filter': 'stock_bonds',
-                    'limit': 100}
+               'group_by_filter': 'stock_bonds',
+               'limit': 100}
     columns = ['secid', 'name', 'is_traded', 'type', 'primary_boardid']
 
     print(f'{dt_now_str()} Start of pages parsing:')
