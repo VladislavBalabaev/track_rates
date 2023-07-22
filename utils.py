@@ -1,4 +1,3 @@
-import os
 import time
 import requests
 import numpy as np
@@ -9,8 +8,6 @@ from tqdm import tqdm
 from urllib import parse
 from termcolor import colored
 from scipy.optimize import fsolve
-
-tinkoff_token = os.getenv('TINKOFF_TOKEN')
 
 
 def dt_now_str():
@@ -199,15 +196,14 @@ def process_bonds(df_raw):
 
         cash_flows = np.sum(vf(np.array(row['coupon_maturities_years'])))
         cash_flows += row['maturity_years'] * row['facevalue'] * np.exp(-row['bond_yield'] * row['maturity_years'])
-        cash_flows -= row['accint']
 
-        duration = cash_flows / (row['facevalue'] * row['waprice'])
+        duration = cash_flows / (row['facevalue'] * row['waprice'] + row['accint'])
 
         return duration
 
     df = df_raw.set_index('secid').copy()
     df = df.loc[df['is_traded'].isin([1]) &
-                ~df[['waprice', 'matdate']].isna().any(axis=1) &
+                ~df[['waprice', 'matdate', 'couponvalue']].isna().any(axis=1) &
                 df['faceunit'].isin(['SUR'])]
 
     df['total_size_mil'] = df['issuesize'] * df['facevalue'] / 1_000_000
