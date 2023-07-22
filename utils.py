@@ -176,7 +176,22 @@ def get_bonds(n_pages: int, add_info: bool = True):
 
 
 def process_bonds(df_raw):
+    y = sp.symbols('y', real=True)
     datetime_now = dt.datetime.now()
+
+    def calculate_bond_yield(row):
+        nonlocal y
+
+        coupon_cash_flows = sp.Matrix(row['couponmaturities']) \
+            .applyfunc(lambda x: row['couponvalue'] * sp.exp(-y * x / 365))
+
+        expr = sum(coupon_cash_flows) \
+               + (row['facevalue'] * sp.exp(-y * row['maturity'] / 365)) \
+               - (row['waprice'] * row['facevalue'] / 100)
+
+        lam_f = sp.lambdify(y, expr)
+
+        return fsolve(lam_f, x0=np.array([0]))[0]
 
     df = df_raw.set_index('secid').copy()
     df = df.loc[df['is_traded'].isin([1]) &
@@ -190,5 +205,8 @@ def process_bonds(df_raw):
     df['coupondates'] = df['coupondates'].map(eval)
     df['couponmaturities'] = df['coupondates'].apply(
         lambda x: [(dt.datetime.strptime(date, '%Y-%m-%d') - datetime_now).days for date in x])
+
+    df['bond_yield'] = df.apply(calculate_bond_yield, axis=1) * 100
+    df = df.loc[df['bond_yield'].between(df['bond_yield'].quantile(0.05), df['bond_yield'].quantile(0.95))]
 
     return df.copy()
