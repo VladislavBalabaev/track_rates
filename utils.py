@@ -182,7 +182,7 @@ def process_bonds(df_raw):
     def calculate_bond_yield(row):
         nonlocal y
 
-        coupon_cash_flows = sp.Matrix(row['coupon_maturity_years'])\
+        coupon_cash_flows = sp.Matrix(row['coupon_maturities_years'])\
             .applyfunc(lambda i: row['couponvalue'] * sp.exp(-y * i))
 
         expr = sum(coupon_cash_flows) \
@@ -197,7 +197,7 @@ def process_bonds(df_raw):
     def calculate_duration(row):
         vf = np.vectorize(lambda i: i * row['couponvalue'] * np.exp(-row['bond_yield'] * i))
 
-        cash_flows = np.sum(vf(np.array(row['coupon_maturity_years'])))
+        cash_flows = np.sum(vf(np.array(row['coupon_maturities_years'])))
         cash_flows += row['maturity_years'] * row['facevalue'] * np.exp(-row['bond_yield'] * row['maturity_years'])
         cash_flows -= row['accint']
 
@@ -218,7 +218,7 @@ def process_bonds(df_raw):
     df['waprice'] = df['waprice'] / 100
 
     df['maturity_years'] = (pd.to_datetime(df['matdate']) - datetime_now).dt.days.astype(float) / 365
-    df['coupon_maturity_years'] = df['coupondates']\
+    df['coupon_maturities_years'] = df['coupondates']\
         .map(eval)\
         .apply(lambda x: [(dt.datetime.strptime(date, '%Y-%m-%d') - datetime_now).days / 365 for date in x])
 
@@ -228,5 +228,5 @@ def process_bonds(df_raw):
     df['dollar_duration'] = df['duration_years'] * df['waprice'] * df['facevalue']
     # df = df.loc[df['bond_yield'].between(df['bond_yield'].quantile(0.05), df['bond_yield'].quantile(0.95))]
 
-    df = df.drop(['coupon_maturity_years'], axis=1)
+    df = df.drop(['coupon_maturities_years'], axis=1)
     return df.copy()
