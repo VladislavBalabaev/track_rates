@@ -2,11 +2,13 @@ import os
 import time
 import requests
 import numpy as np
+import sympy as sp
 import pandas as pd
 import datetime as dt
 from tqdm import tqdm
 from urllib import parse
 from termcolor import colored
+from scipy.optimize import fsolve
 
 tinkoff_token = os.getenv('TINKOFF_TOKEN')
 
@@ -171,3 +173,22 @@ def get_bonds(n_pages: int, add_info: bool = True):
         all_bonds_info = add_bonds_info(secids_to_add_info)
         all_bonds = pd.merge(all_bonds, all_bonds_info, on='secid', how='left')
     return all_bonds
+
+
+def process_bonds(df_raw):
+    datetime_now = dt.datetime.now()
+
+    df = df_raw.set_index('secid').copy()
+    df = df.loc[df['is_traded'].isin([1]) &
+                ~df[['waprice', 'matdate']].isna().any(axis=1) &
+                df['faceunit'].isin(['SUR'])]
+
+    df['total_size_mil'] = df['issuesize'] * df['facevalue'] / 1_000_000
+    df['couponpercent_compounded'] = (((1 + (df['couponvalue'] / df['facevalue'])) ** df['couponfrequency']) - 1) * 100
+
+    df['maturity'] = (pd.to_datetime(df['matdate']) - datetime_now).dt.days.astype(int)
+    df['coupondates'] = df['coupondates'].map(eval)
+    df['couponmaturities'] = df['coupondates'].apply(
+        lambda x: [(dt.datetime.strptime(date, '%Y-%m-%d') - datetime_now).days for date in x])
+
+    return df.copy()
