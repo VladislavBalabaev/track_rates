@@ -187,7 +187,8 @@ def process_bonds(df_raw):
 
         expr = sum(coupon_cash_flows) \
                + (row['facevalue'] * sp.exp(-y * row['maturity'] / 365)) \
-               - (row['waprice'] * row['facevalue'] / 100)
+               - (row['waprice'] * row['facevalue'] / 100) \
+               - (row['accint'])
 
         lam_f = sp.lambdify(y, expr)
 
