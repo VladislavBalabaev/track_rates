@@ -194,6 +194,16 @@ def process_bonds(df_raw):
 
         return fsolve(lam_f, x0=np.array([0]))[0]
 
+    def calculate_duration(row):
+        vf = np.vectorize(lambda x: (x / 365) * row['couponvalue'] * np.exp(-(row['bond_yield'] / 100) * (x / 365)))
+
+        cash_flows = np.sum(vf(np.array(row['couponmaturities'])))
+        cash_flows += ((row['maturity'] / 365) * row['facevalue'] * np.exp(
+            -(row['bond_yield'] / 100) * (row['maturity'] / 365))) - (row['accint'])
+
+        duration = cash_flows / ((row['waprice'] * row['facevalue']) / 100)
+        return duration
+
     df = df_raw.set_index('secid').copy()
     df = df.loc[df['is_traded'].isin([1]) &
                 ~df[['waprice', 'matdate']].isna().any(axis=1) &
@@ -208,6 +218,7 @@ def process_bonds(df_raw):
         lambda x: [(dt.datetime.strptime(date, '%Y-%m-%d') - datetime_now).days for date in x])
 
     df['bond_yield'] = df.apply(calculate_bond_yield, axis=1) * 100
-    df = df.loc[df['bond_yield'].between(df['bond_yield'].quantile(0.05), df['bond_yield'].quantile(0.95))]
+    df['duration_years'] = df.apply(calculate_duration, axis=1)
+    # df = df.loc[df['bond_yield'].between(df['bond_yield'].quantile(0.05), df['bond_yield'].quantile(0.95))]
 
     return df.copy()
