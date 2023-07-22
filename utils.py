@@ -182,12 +182,12 @@ def process_bonds(df_raw):
     def calculate_bond_yield(row):
         nonlocal y
 
-        coupon_cash_flows = sp.Matrix(row['couponmaturities'])\
-            .applyfunc(lambda i: row['couponvalue'] * sp.exp(-y * i / 365))
+        coupon_cash_flows = sp.Matrix(row['coupon_maturity_years'])\
+            .applyfunc(lambda i: row['couponvalue'] * sp.exp(-y * i))
 
         expr = sum(coupon_cash_flows) \
-               + (row['facevalue'] * sp.exp(-y * row['maturity'] / 365)) \
-               - (row['facevalue'] * (row['waprice'] / 100)) \
+               + (row['facevalue'] * sp.exp(-y * row['maturity_years'])) \
+               - (row['facevalue'] * row['waprice']) \
                - (row['accint'])
 
         lam_f = sp.lambdify(y, expr)
@@ -195,14 +195,13 @@ def process_bonds(df_raw):
         return fsolve(lam_f, x0=np.array([0]))[0]
 
     def calculate_duration(row):
-        vf = np.vectorize(lambda i: (i / 365) * row['couponvalue'] * np.exp(-(row['bond_yield'] / 100) * (i / 365)))
+        vf = np.vectorize(lambda i: i * row['couponvalue'] * np.exp(-row['bond_yield'] * i))
 
-        cash_flows = np.sum(vf(np.array(row['couponmaturities'])))
-        cash_flows += (row['maturity'] / 365) * row['facevalue'] \
-                      * np.exp(-(row['bond_yield'] / 100) * (row['maturity'] / 365))
+        cash_flows = np.sum(vf(np.array(row['coupon_maturity_years'])))
+        cash_flows += row['maturity_years'] * row['facevalue'] * np.exp(-row['bond_yield'] * row['maturity_years'])
         cash_flows -= row['accint']
 
-        duration = cash_flows / (row['facevalue'] * (row['waprice'] / 100))
+        duration = cash_flows / (row['facevalue'] * row['waprice'])
 
         return duration
 
@@ -212,16 +211,22 @@ def process_bonds(df_raw):
                 df['faceunit'].isin(['SUR'])]
 
     df['total_size_mil'] = df['issuesize'] * df['facevalue'] / 1_000_000
-    df['couponpercent_compounded'] = (((1 + (df['couponvalue'] / df['facevalue'])) ** df['couponfrequency']) - 1) * 100
 
-    df['maturity'] = (pd.to_datetime(df['matdate']) - datetime_now).dt.days.astype(int)
-    df['coupondates'] = df['coupondates'].map(eval)
-    df['couponmaturities'] = df['coupondates'].apply(
-        lambda x: [(dt.datetime.strptime(date, '%Y-%m-%d') - datetime_now).days for date in x])
+    df['couponpercent'] = df['couponpercent'] / 100
+    df['coupon_percent_compounded'] = (((1 + (df['couponvalue'] / df['facevalue'])) ** df['couponfrequency']) - 1)
 
-    df['bond_yield'] = df.apply(calculate_bond_yield, axis=1) * 100
+    df['waprice'] = df['waprice'] / 100
+
+    df['maturity_years'] = (pd.to_datetime(df['matdate']) - datetime_now).dt.days.astype(float) / 365
+    df['coupon_maturity_years'] = df['coupondates']\
+        .map(eval)\
+        .apply(lambda x: [(dt.datetime.strptime(date, '%Y-%m-%d') - datetime_now).days / 365 for date in x])
+
+    df['bond_yield'] = df.apply(calculate_bond_yield, axis=1)
+
     df['duration_years'] = df.apply(calculate_duration, axis=1)
-    df['dollar_duration'] = df['duration_years'] * df['waprice'] * df['facevalue'] / 100
+    df['dollar_duration'] = df['duration_years'] * df['waprice'] * df['facevalue']
     # df = df.loc[df['bond_yield'].between(df['bond_yield'].quantile(0.05), df['bond_yield'].quantile(0.95))]
 
+    df = df.drop(['coupon_maturity_years'], axis=1)
     return df.copy()
