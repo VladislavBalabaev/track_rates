@@ -182,12 +182,12 @@ def process_bonds(df_raw):
     def calculate_bond_yield(row):
         nonlocal y
 
-        coupon_cash_flows = sp.Matrix(row['couponmaturities']) \
-            .applyfunc(lambda x: row['couponvalue'] * sp.exp(-y * x / 365))
+        coupon_cash_flows = sp.Matrix(row['couponmaturities'])\
+            .applyfunc(lambda i: row['couponvalue'] * sp.exp(-y * i / 365))
 
         expr = sum(coupon_cash_flows) \
                + (row['facevalue'] * sp.exp(-y * row['maturity'] / 365)) \
-               - (row['waprice'] * row['facevalue'] / 100) \
+               - (row['facevalue'] * (row['waprice'] / 100)) \
                - (row['accint'])
 
         lam_f = sp.lambdify(y, expr)
@@ -195,13 +195,15 @@ def process_bonds(df_raw):
         return fsolve(lam_f, x0=np.array([0]))[0]
 
     def calculate_duration(row):
-        vf = np.vectorize(lambda x: (x / 365) * row['couponvalue'] * np.exp(-(row['bond_yield'] / 100) * (x / 365)))
+        vf = np.vectorize(lambda i: (i / 365) * row['couponvalue'] * np.exp(-(row['bond_yield'] / 100) * (i / 365)))
 
         cash_flows = np.sum(vf(np.array(row['couponmaturities'])))
-        cash_flows += ((row['maturity'] / 365) * row['facevalue'] * np.exp(
-            -(row['bond_yield'] / 100) * (row['maturity'] / 365))) - (row['accint'])
+        cash_flows += (row['maturity'] / 365) * row['facevalue'] \
+                      * np.exp(-(row['bond_yield'] / 100) * (row['maturity'] / 365))
+        cash_flows -= row['accint']
 
-        duration = cash_flows / ((row['waprice'] * row['facevalue']) / 100)
+        duration = cash_flows / (row['facevalue'] * (row['waprice'] / 100))
+
         return duration
 
     df = df_raw.set_index('secid').copy()
@@ -219,6 +221,7 @@ def process_bonds(df_raw):
 
     df['bond_yield'] = df.apply(calculate_bond_yield, axis=1) * 100
     df['duration_years'] = df.apply(calculate_duration, axis=1)
+    df['dollar_duration'] = df['duration_years'] * df['waprice'] * df['facevalue'] / 100
     # df = df.loc[df['bond_yield'].between(df['bond_yield'].quantile(0.05), df['bond_yield'].quantile(0.95))]
 
     return df.copy()
