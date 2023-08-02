@@ -15,7 +15,7 @@ def dt_now_str():
     Get current datetime painted green in string format.
     """
     now = dt.datetime.now().isoformat(sep=" ", timespec="seconds")
-    return f"{colored(f'({now})', 'green')}"
+    return f"{colored(text=f'({now})', color='green')}"
 
 
 def query(method: str, details: dict = None):
@@ -110,7 +110,7 @@ def get_bond_info(secid):
             if date == info.loc['value', 'matdate']:
                 break
             else:
-                date = dt.datetime.strptime(dates['coupondate'].max(), "%Y-%m-%d")
+                date = dt.datetime.strptime(dates['coupondate'].max(), __format="%Y-%m-%d")
                 date = (date + dt.timedelta(days=1)).strftime("%Y-%m-%d")
         else:
             print(f"Something wrong with {secid}")
@@ -173,7 +173,7 @@ def get_bonds(n_pages: int, add_info: bool = True):
 
 
 def process_bonds(df_raw):
-    y = sp.symbols('y', real=True)
+    y = sp.symbols(names='y', real=True)
     datetime_now = dt.datetime.now()
 
     def calculate_bond_yield(row):
@@ -216,7 +216,7 @@ def process_bonds(df_raw):
     df['maturity_years'] = (pd.to_datetime(df['matdate']) - datetime_now).dt.days.astype(float) / 365
     df['coupon_maturities_years'] = df['coupondates']\
         .map(eval)\
-        .apply(lambda x: [(dt.datetime.strptime(date, '%Y-%m-%d') - datetime_now).days / 365 for date in x])
+        .apply(lambda x: [(dt.datetime.strptime(date, __format='%Y-%m-%d') - datetime_now).days / 365 for date in x])
 
     df['bond_yield'] = df.apply(calculate_bond_yield, axis=1)
 
