@@ -9,6 +9,14 @@ from scipy.optimize import fsolve
 
 from utils import *
 
+
+columns_for_info = {
+    'secid', 'issuedate', 'matdate', 'buybackdate', 'initialfacevalue', 'faceunit',
+    'facevalue', 'listlevel', 'includedbymoex', 'issuesize', 'isqualifiedinvestors',
+    'couponfrequency', 'couponpercent', 'couponvalue', 'typename'
+}
+
+
 def query(method: str, details: dict = None):
     """
     Sending query to ISS MOEX.
@@ -97,32 +105,26 @@ def get_bond_info(secid):
         return get_bond_info(secid)
 
 
-columns_for_info = {
-    'secid', 'issuedate', 'matdate', 'buybackdate', 'initialfacevalue', 'faceunit',
-    'facevalue', 'listlevel', 'includedbymoex', 'issuesize', 'isqualifiedinvestors',
-    'couponfrequency', 'couponpercent', 'couponvalue', 'typename'
-}
-
-
-def add_bonds_info(secids):
-    """
-    Get information of bonds by their security ids.
-    """
-    print(f'{dt_now_str()} Start of adding info to bonds:')
-
-    all_bonds_info = []
-    for secid in tqdm(secids):
-        all_bonds_info.append(get_bond_info(secid=secid))
-    all_bonds_info = pd.concat(all_bonds_info)
-
-    print(f'{dt_now_str()} End of adding info to bonds.')
-    return all_bonds_info
-
-
 def get_bonds(n_pages: int, add_info: bool = True):
     """
     Get bonds and their info from first N pages.
     """
+
+    def add_bonds_info(secids):
+        """
+        Get information of bonds by their security ids.
+        """
+        print(f'{dt_now_str()} Start of adding info to bonds:')
+
+        all_bonds_info = []
+        for secid in tqdm(secids):
+            all_bonds_info.append(get_bond_info(secid=secid))
+        all_bonds_info = pd.concat(all_bonds_info)
+
+        print(f'{dt_now_str()} End of adding info to bonds.')
+        return all_bonds_info
+
+
     details = {'group_by': 'group',
                'group_by_filter': 'stock_bonds',
                'limit': 100}
