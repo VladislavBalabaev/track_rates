@@ -1,7 +1,7 @@
 import datetime as dt
 from pathlib import Path
 
-from utils import get_bonds
+from parse_functions import get_bonds
 
 
 path = Path('data')
