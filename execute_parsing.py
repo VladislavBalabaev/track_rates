@@ -1,7 +1,7 @@
 import datetime as dt
 from pathlib import Path
 
-from parse_functions import get_bonds
+from iss_moex_bonds import get_bonds
 
 
 path = Path('data')
