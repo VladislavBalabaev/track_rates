@@ -60,63 +60,68 @@ def get_bond_info(secid):
 
     datetime_now = dt.datetime.now()
 
-    # general info
-    info = query(method=f"securities/{secid}")
+    try:
+        # general info
+        info = query(method=f"securities/{secid}")
 
-    info = pandify(json_object=info, json_key='description')
-    info['name'] = info['name'].str.lower()
-    bond_columns = list(set.intersection(columns_for_info, set(info['name'])))
-    info = info \
-        .set_index('name') \
-        .loc[bond_columns, ['value']] \
-        .T
+        info = pandify(json_object=info, json_key='description')
+        info['name'] = info['name'].str.lower()
+        bond_columns = list(set.intersection(columns_for_info, set(info['name'])))
+        info = info \
+            .set_index('name') \
+            .loc[bond_columns, ['value']] \
+            .T
 
-    # recent prices and volumes
-    history = query(
-        method=f"history/engines/stock/markets/bonds/sessions/3/securities/{secid}",
-        details={'from': (datetime_now - dt.timedelta(days=7)).strftime("%Y-%m-%d")}
-    )
-    history = pandify(json_object=history,
-                      json_key='history',
-                      columns=['NUMTRADES', 'WAPRICE', 'ACCINT'])
-    history = history[history['NUMTRADES'] > 0].dropna()
+        # recent prices and volumes
+        history = query(
+            method=f"history/engines/stock/markets/bonds/sessions/3/securities/{secid}",
+            details={'from': (datetime_now - dt.timedelta(days=7)).strftime("%Y-%m-%d")}
+        )
+        history = pandify(json_object=history,
+                          json_key='history',
+                          columns=['NUMTRADES', 'WAPRICE', 'ACCINT'])
+        history = history[history['NUMTRADES'] > 0].dropna()
 
-    if history.shape[0] > 0:
-        info['numtrades'] = history['NUMTRADES'].sum()
-        info['waprice'] = np.average(history['WAPRICE'], weights=history['NUMTRADES'])
-        info['accint'] = history['ACCINT'].iloc[-1]
+        if history.shape[0] > 0:
+            info['numtrades'] = history['NUMTRADES'].sum()
+            info['waprice'] = np.average(history['WAPRICE'], weights=history['NUMTRADES'])
+            info['accint'] = history['ACCINT'].iloc[-1]
 
-    # coupon dates
-    if 'matdate' in info and info.loc['value', 'matdate'] is not None:
-        coupon_dates = []
-        date = datetime_now.strftime("%Y-%m-%d")
+        # coupon dates
+        if 'matdate' in info and info.loc['value', 'matdate'] is not None:
+            coupon_dates = []
+            date = datetime_now.strftime("%Y-%m-%d")
 
-        for _ in range(10):
-            dates = query(
-                method=f'statistics/engines/stock/markets/bonds/bondization/{secid}',
-                details={'iss.only': 'coupons',
-                         'from': date,
-                         'limit': 100}
-            )
-            dates = pandify(json_object=dates, json_key='coupons', columns=['coupondate'])
+            for _ in range(10):
+                dates = query(
+                    method=f'statistics/engines/stock/markets/bonds/bondization/{secid}',
+                    details={'iss.only': 'coupons',
+                             'from': date,
+                             'limit': 100}
+                )
+                dates = pandify(json_object=dates, json_key='coupons', columns=['coupondate'])
 
-            if dates.shape[0] == 0:
-                break
+                if dates.shape[0] == 0:
+                    break
+                else:
+                    coupon_dates += dates['coupondate'].tolist()
+
+                date = dates['coupondate'].max()
+
+                if date == info.loc['value', 'matdate']:
+                    break
+                else:
+                    date = dt.datetime.strptime(dates['coupondate'].max(), "%Y-%m-%d")
+                    date = (date + dt.timedelta(days=1)).strftime("%Y-%m-%d")
             else:
-                coupon_dates += dates['coupondate'].tolist()
+                print(f"Something wrong with {secid}")
 
-            date = dates['coupondate'].max()
-
-            if date == info.loc['value', 'matdate']:
-                break
-            else:
-                date = dt.datetime.strptime(dates['coupondate'].max(), __format="%Y-%m-%d")
-                date = (date + dt.timedelta(days=1)).strftime("%Y-%m-%d")
-        else:
-            print(f"Something wrong with {secid}")
-
-        info['coupondates'] = str(sorted(list(set(coupon_dates))))
-    return info
+            info['coupondates'] = str(sorted(list(set(coupon_dates))))
+        return info
+    except (ConnectionError, OSError) as e:
+        print(e)
+        time.sleep(10)
+        return get_bond_info(secid)
 
 
 def add_bonds_info(secids):
@@ -216,7 +221,7 @@ def process_bonds(df_raw):
     df['maturity_years'] = (pd.to_datetime(df['matdate']) - datetime_now).dt.days.astype(float) / 365
     df['coupon_maturities_years'] = df['coupondates']\
         .map(eval)\
-        .apply(lambda x: [(dt.datetime.strptime(date, __format='%Y-%m-%d') - datetime_now).days / 365 for date in x])
+        .apply(lambda x: [(dt.datetime.strptime(date, '%Y-%m-%d') - datetime_now).days / 365 for date in x])
 
     df['bond_yield'] = df.apply(calculate_bond_yield, axis=1)
 
