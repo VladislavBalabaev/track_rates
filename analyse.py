@@ -57,5 +57,4 @@ def process_bonds(df_raw):
     df['dollar_duration'] = df['duration_years'] * df['waprice'] * df['facevalue']
     # df = df.loc[df['bond_yield'].between(df['bond_yield'].quantile(0.05), df['bond_yield'].quantile(0.95))]
 
-    df = df.drop(['coupon_maturities_years'], axis=1)
     return df.copy()
