@@ -7,8 +7,6 @@ from tqdm import tqdm
 from urllib import parse
 from termcolor import colored
 
-from utils import *
-
 
 columns_for_info = {
     'secid', 'issuedate', 'matdate', 'buybackdate', 'initialfacevalue', 'faceunit',
