@@ -20,6 +20,7 @@ def dt_now_str():
     Get current datetime painted green in string format.
     """
     now = dt.datetime.now().isoformat(sep=" ", timespec="seconds")
+
     return f"{colored(text=f'({now})', color='green')}"
 
 
@@ -31,6 +32,7 @@ def pandify(json_object, json_key='securities', columns: list = None):
                       columns=json_object[json_key]['columns'])
     if columns:
         df = df[columns]
+
     return df
 
 
@@ -47,6 +49,7 @@ def query(method: str, details: dict = None):
 
     result = requests.get(url)
     result.encoding = 'utf-8'
+
     return result.json()
 
 
@@ -115,10 +118,12 @@ def get_bond_info(secid):
                 print(f"Something wrong with {secid}")
 
             info['coupondates'] = str(sorted(list(set(coupon_dates))))
+
         return info
     except (ConnectionError, OSError) as e:
         print(e)
         time.sleep(10)
+
         return get_bond_info(secid)
 
 
@@ -139,6 +144,7 @@ def get_bonds(n_pages: int, add_info: bool = True):
         all_bonds_info = pd.concat(all_bonds_info)
 
         print(f'{dt_now_str()} End of adding info to bonds.')
+
         return all_bonds_info
 
 
@@ -173,5 +179,6 @@ def get_bonds(n_pages: int, add_info: bool = True):
         secids_to_add_info = all_bonds.loc[all_bonds['is_traded'] == 1, 'secid'].unique()
         all_bonds_info = add_bonds_info(secids_to_add_info)
         all_bonds = pd.merge(all_bonds, all_bonds_info, on='secid', how='left')
+
     return all_bonds
   
