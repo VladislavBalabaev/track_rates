@@ -122,10 +122,10 @@ def get_bond_info(secid):
             info['coupondates'] = str(sorted(list(set(coupon_dates))))
 
         return info
+
     except (ConnectionError, OSError) as e:
         print(e)
         time.sleep(10)
-
         return get_bond_info(secid)
 
 
