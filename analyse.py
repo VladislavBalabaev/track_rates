@@ -34,7 +34,7 @@ def process_bonds(df_raw):
 
         return duration
 
-    df = df_raw.set_index('secid').copy()
+    df = df_raw.copy()
     df = df.loc[df['is_traded'].isin([1]) &
                 ~df[['waprice', 'matdate', 'couponvalue']].isna().any(axis=1) &
                 df['faceunit'].isin(['SUR'])]
