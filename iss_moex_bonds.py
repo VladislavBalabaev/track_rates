@@ -7,6 +7,8 @@ from tqdm import tqdm
 from urllib import parse
 from termcolor import colored
 
+from timeout import timeout, TimeoutError
+
 
 columns_for_info = {
     'secid', 'issuedate', 'matdate', 'buybackdate', 'initialfacevalue', 'faceunit',
@@ -21,7 +23,7 @@ def dt_now_str():
     """
     now = dt.datetime.now().isoformat(sep=" ", timespec="seconds")
 
-    return f"{colored(text=f'({now})', color='green')}"
+    return colored(text=f'({now})', color='green')
 
 
 def pandify(json_object, json_key='securities', columns: list = None):
@@ -53,6 +55,7 @@ def query(method: str, details: dict = None):
     return result.json()
 
 
+@timeout(seconds=60)
 def get_bond_info(secid):
     """
     Get particular bond's information by its security id.
@@ -124,9 +127,12 @@ def get_bond_info(secid):
         return info
 
     except (ConnectionError, OSError) as e:
-        print(e)
+        print(colored(text=e, color='red'))
         time.sleep(10)
         return get_bond_info(secid)
+    except TimeoutError:
+        print(colored(text=f"{secid} caused TimeoutError.", color='red'))
+        return pd.DataFrame()
 
 
 def get_bonds(n_pages: int, add_info: bool = True):
